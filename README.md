@@ -48,6 +48,12 @@ If Titanium has improved your performance or saved your workflow, consider a don
 
 ---
 
+## 🔐 Security & Integrity (SHA-256)
+Check the file hash to ensure it hasn't been tampered with:
+- **Titanium_LTSC_24H2.ps1**: `A43CD3CA14775D870E40699D0E674B100705D36B0028E7E03B76519B54BB4574`
+- **system4_win11_home.ps1**: `D4EF3504A3382BD3632A9FFA5752ECD45AF20C9E45E16A7F6F5B90B329D972F3`
+
+---
 ## ⚠️ Disclaimer
 *These scripts perform deep system modifications. The author is not responsible for any data loss or system instability. Always create a System Restore point before proceeding.*
 
