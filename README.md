@@ -53,7 +53,6 @@ Check the file hash to ensure it hasn't been tampered with:
 - **Titanium_LTSC_24H2.ps1**: `7d8e3152dd9b4f4591bfff5cf7030730b7e15016a5a71231c3f8a3b7460841bb`
 - **system4_win11_home.ps1**: `eff321ec55657ece02f75448b302f35c85d2a08c1a7c023989b1441362c9894d`
 - **Titanium_Adobe_Workstation_v8.ps1**: `79ba1d25c5a5100bca2dc3d4f41356a61806e351ce03120affead73606a6f0c9`
-
   
 ---
 ## ⚠️ Disclaimer
