@@ -1,2 +1,2 @@
-# Win-Optimization-Collection
-Comprehensive PowerShell optimization suite for Windows 11 (Home, Pro, LTSC). Focused on performance, privacy, and 25H2 specific tweaks.
+# Win-Titanium-OS-Optimization-Suite
+High-end PowerShell framework for Windows 11 25H2 & IoT LTSC. Advanced Kernel tuning, Hard-Lock ACL service management, and Low-Latency optimization.
