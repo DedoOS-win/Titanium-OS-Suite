@@ -5,6 +5,7 @@
 ![Edition](https://shields.io_|_IoT_LTSC-cyan)
 ![License](https://shields.io)
 
+
 **Titanium OS** is an elite PowerShell framework designed for power users, extreme gamers, and professionals (CAD/Adobe) who demand total control over their Windows environment. 
 
 Unlike standard "debloaters," Titanium uses **.NET API Token Elevation** and **Registry ACL Hard-Locking** to ensure that optimizations are permanent and protected from system reverts.
@@ -16,7 +17,7 @@ Unlike standard "debloaters," Titanium uses **.NET API Token Elevation** and **R
 ### 🟢 Community Edition (Free & Public)
 *Available in this repository*
 - **Titanium Home**: Deep system hardening for Windows 11 Home (AI/Copilot removal, Telemetry block).
-- **Titanium IoT LTSC**: The ultimate baseline for 24H2 IoT LTSC (V8 Titanium Engine).
+- **Titanium IoT LTSC**: Deep kernel tuning and hard-lock telemetry removal. Engineered for maximum stability and zero latency on 24H2 IoT LTSC.
 - **Adaptive Memory Engine**: Dynamic RAM/CPU optimization (Audio-safe).
 - **Adobe Titanium (Lite)**: Specialized tuning for Adobe suites (preserves Firefly AI & Licenses).
 
