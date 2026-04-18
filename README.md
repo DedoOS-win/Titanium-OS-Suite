@@ -50,9 +50,11 @@ If Titanium has improved your performance or saved your workflow, consider a don
 
 ## 🔐 Security & Integrity (SHA-256)
 Check the file hash to ensure it hasn't been tampered with:
-- **Titanium_LTSC_24H2.ps1**: `A43CD3CA14775D870E40699D0E674B100705D36B0028E7E03B76519B54BB4574`
-- **system4_win11_home.ps1**: `D4EF3504A3382BD3632A9FFA5752ECD45AF20C9E45E16A7F6F5B90B329D972F3`
+- **Titanium_LTSC_24H2.ps1**: `7d8e3152dd9b4f4591bfff5cf7030730b7e15016a5a71231c3f8a3b7460841bb`
+- **system4_win11_home.ps1**: `eff321ec55657ece02f75448b302f35c85d2a08c1a7c023989b1441362c9894d`
+- **Titanium_Adobe_Workstation_v8.ps1**: `79ba1d25c5a5100bca2dc3d4f41356a61806e351ce03120affead73606a6f0c9`
 
+  
 ---
 ## ⚠️ Disclaimer
 *These scripts perform deep system modifications. The author is not responsible for any data loss or system instability. Always create a System Restore point before proceeding.*
