@@ -1,7 +1,7 @@
 # 🚀 Titanium OS Optimization Suite (v8.5)
 ### *Advanced Kernel-Level Tuning & System Hardening for Windows 11 25H2*
 
-![Windows 11 Ready](https://shields.io)
+![OS](https://shields.io)
 ![Edition](https://shields.io_|_IoT_LTSC-cyan)
 ![License](https://shields.io)
 
