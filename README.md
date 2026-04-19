@@ -1,9 +1,9 @@
 # 🚀 Titanium OS Optimization Suite (v8.5)
 ### *Advanced Kernel-Level Tuning & System Hardening for Windows 11 25H2*
 
-![OS](https://shields.io)
-![Edition](https://shields.io_|_IoT_LTSC-cyan)
-![License](https://shields.io)
+<img src="https://shields.io" alt="OS">
+<img src="https://shields.io_|_IoT_LTSC-cyan" alt="Edition">
+<img src="https://shields.io" alt="License">
 
 
 **Titanium OS** is an elite PowerShell framework designed for power users, extreme gamers, and professionals (CAD/Adobe) who demand total control over their Windows environment. 
