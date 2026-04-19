@@ -16,10 +16,10 @@ Unlike standard "debloaters," Titanium uses **.NET API Token Elevation** and **R
 
 ### 🟢 Community Edition (Free & Public)
 *Available in this repository*
-- **Titanium Home**: Deep system hardening for Windows 11 Home (AI/Copilot removal, Telemetry block).
-- **Titanium IoT LTSC**: Deep kernel tuning and hard-lock telemetry removal. Engineered for maximum stability and zero latency on 24H2 IoT LTSC.
+- **system4_win11_home**: Deep system hardening for Windows 11 Home (AI/Copilot removal, Telemetry block).
+- **system4_LTSC_24H2_final_v2**: Deep kernel tuning and hard-lock telemetry removal. Engineered for maximum stability and zero latency on 24H2 IoT LTSC.
 - **Adaptive Memory Engine**: Dynamic RAM/CPU optimization (Audio-safe).
-- **Adobe Titanium (Lite)**: Specialized tuning for Adobe suites (preserves Firefly AI & Licenses).
+- **Titanium_Adobe_Workstation_v8 (Lite)**: Specialized tuning for Adobe suites (preserves Firefly AI & Licenses). - AI Ready: Keeps Firefly and Generative Fill services fully functional. - Zero Telemetry: Blocks only background tracking and intrusive update services that impact rendering performance.
 
 ### 💎 Titanium Premium Bundle (Supporters Only)
 To support the hundreds of hours spent on research and maintenance, the most advanced automation tools are reserved for project supporters:
