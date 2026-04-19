@@ -3,9 +3,7 @@
 # TITANIUM V8 - FULL CONTROLLED SCRIPT (IoT LTSC 24H2)
 # Target: Windows 11 IoT LTSC 24H2 (26100.x)
 # Run as: SYSTEM via PowerRun
-# Language: English - GitHub distribution
-# ============================================================
-# English version - GitHub distribution
+# Language: English 
 # ============================================================
 Write-Host "=== TITANIUM V8 FULL CONTROLLED ENVIRONMENT ===" -ForegroundColor Cyan
 
@@ -18,15 +16,15 @@ if ([Security.Principal.WindowsIdentity]::GetCurrent().Name -ne "NT AUTHORITY\SY
 }
 
 # ------------------------------------------------------------
-# SISTEMA DI LOGGING
+# LOGGING SYSTEM
 # Log sul Desktop utente + backup in C:\Windows\Logs\System4\
-# Gira come SYSTEM: rileva utente reale via WMI
+# Runs as SYSTEM: detects real user via WMI
 # ------------------------------------------------------------
 $LogDate      = Get-Date -Format "yyyy-MM-dd_HH-mm"
 $LogDateHuman = Get-Date -Format "dd/MM/yyyy \a\l\l\e HH:mm"
 $LogStartTime = Get-Date
 
-# Rileva Desktop utente reale (SYSTEM non ha accesso a $env:USERPROFILE utente)
+# Detect real user Desktop (SYSTEM has no access to user $env:USERPROFILE)
 $_realUserDesktop = $null
 try {
     $activeUser = (Get-CimInstance Win32_ComputerSystem -ErrorAction SilentlyContinue).UserName
@@ -56,7 +54,7 @@ $script:LogWarnings = 0
 $script:LogErrors   = 0
 $script:LogBlocksOk = 0
 
-# Info hardware per intestazione
+# Hardware info for log header
 $_cs      = Get-CimInstance Win32_ComputerSystem  -ErrorAction SilentlyContinue
 $_cpu     = Get-CimInstance Win32_Processor       -ErrorAction SilentlyContinue | Select-Object -First 1
 $_os      = Get-CimInstance Win32_OperatingSystem -ErrorAction SilentlyContinue
@@ -107,9 +105,9 @@ Add-Content -Path $LogBackup  -Value $header -Encoding UTF8 -ErrorAction Silentl
 Write-Host "[LOG] Report: $LogDesktop" -ForegroundColor Cyan
 
 # ------------------------------------------------------------
-# PUNTO DI RIPRISTINO
-# Abilitato prima di qualunque modifica
-# Su IoT LTSC il System Restore potrebbe essere disabilitato
+# RESTORATION POINT
+# Enabled before any modification
+# On IoT LTSC System Restore may be disabled by default
 # ------------------------------------------------------------
 Write-Host "[INIT] Creating restore point..." -ForegroundColor Cyan
 try {
@@ -240,9 +238,9 @@ Enable-Privileges
 
     Write-Host "   Hardware: $CpuCores Core Fisici | $RAM_GB GB RAM @ $RAMSpeed MHz" -ForegroundColor Gray
 
-    # 2. OTTIMIZZAZIONE TIMER (HPET & TICK)
+    # 2. TIMER OPTIMIZATION (HPET & TICK)
     # Safe strategy for bare metal with VirtualBox/Supremo/USB audio
-    Write-Host "   Ottimizzazione Timer di Sistema (Low Latency)..." -ForegroundColor Gray
+    Write-Host "   System Timer Optimization (Low Latency)..." -ForegroundColor Gray
 
     # Detect if Hyper-V is active (VirtualBox cannot coexist with Hyper-V)
     $HyperVActive = $false
@@ -274,7 +272,7 @@ Enable-Privileges
         # USB audio present (soundbar, DAC, interfaces): DO NOT disable dynamic tick
         # disabledynamictick altera gli interrupt USB audio causando distorsione
         & bcdedit.exe /set useplatformclock no   2>$null
-        & bcdedit.exe /deletevalue disabledynamictick 2>$null  # Ripristina default
+        & bcdedit.exe /deletevalue disabledynamictick 2>$null  # Restore default
         & bcdedit.exe /deletevalue useplatformtick    2>$null
         Write-Host "   Timer: USB audio detected - dynamic tick preserved for audio stability." -ForegroundColor Yellow
         if ($usbAudio) { Write-Host ("   Protected device: {0}" -f $usbAudio.FriendlyName) -ForegroundColor Gray }
@@ -298,14 +296,14 @@ Enable-Privileges
     $KernelTimerPath = "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel"
     Remove-ItemProperty -Path $KernelTimerPath -Name "GlobalTimerResolutionRequests" -ErrorAction SilentlyContinue
 
-    # Ripristina driver audio USB generici se rimossi accidentalmente
+    # Restore generic USB audio drivers if accidentally removed
     & pnputil.exe /add-driver "$env:SystemRoot\INF\wdmaudio.inf" /install /force 2>$null | Out-Null
     & pnputil.exe /add-driver "$env:SystemRoot\INF\usbaudio.inf"  /install /force 2>$null | Out-Null
     Write-Host "   Generic USB audio drivers: verified and restored." -ForegroundColor Gray
 
     Stop-Service -Name "SysMain","WSearch","Spooler" -Force -ErrorAction SilentlyContinue
 
-    # 3. LOGICA PAGEFILE ADATTIVO
+    # 3. ADAPTIVE PAGEFILE LOGIC
     if ($RAM_GB -le 4) {
         $MinP = 2048; $MaxP = 4096; $Profile = "LOW RAM"
     } elseif ($RAM_GB -le 8) {
@@ -319,7 +317,7 @@ Enable-Privileges
     $RegMM = "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management"
     Set-ItemProperty -Path $RegMM -Name "PagingFiles" -Value "C:\pagefile.sys $MinP $MaxP" -Force
 
-    # 4. LOGICA SVCHOST SPLIT - tabella granulare per RAM
+    # 4. SVCHOST SPLIT LOGIC - granular table by RAM
     $thresholdMap = @{
         4  = 400000
         6  = 600000
@@ -336,10 +334,10 @@ Enable-Privileges
         Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control" -Name "SvcHostSplitThresholdInKB" -Value $svcValue -Force
         Write-Host "   SvcHostSplitThreshold: $svcValue KB (RAM: $RAM_GB GB)." -ForegroundColor Gray
     } else {
-        Write-Host "   WARN: RAM non mappata ($RAM_GB GB), SvcHostSplitThreshold non modificato." -ForegroundColor Yellow
+        Write-Host "   WARN: RAM not mapped ($RAM_GB GB), SvcHostSplitThreshold not modified." -ForegroundColor Yellow
     }
 
-    # 5. COMPRESSIONE MEMORIA (MMAgent)
+    # 5. MEMORY COMPRESSION (MMAgent)
     if (Get-Command Disable-MMAgent -ErrorAction SilentlyContinue) {
         if ($RAM_GB -ge 16 -or $CpuCores -le 4) {
             Disable-MMAgent -MemoryCompression -ErrorAction SilentlyContinue
@@ -352,7 +350,7 @@ Enable-Privileges
 
     Start-Service -Name "SysMain","WSearch","Spooler" -ErrorAction SilentlyContinue
 
-    Write-Host ("-> Profilo {0}: Timer Ottimizzati | SvcHost {1} {2} KB | Compressione {3}" -f $Profile, $(if($RAM_GB -ge 4){"Split"}else{"Unified"}), $svcValue, $CompStatus) -ForegroundColor Green
+    Write-Host ("-> Profile {0}: Optimized Timers | SvcHost {1} {2} KB | Compression {3}" -f $Profile, $(if($RAM_GB -ge 4){"Split"}else{"Unified"}), $svcValue, $CompStatus) -ForegroundColor Green
 }
 
 # ============================================================
@@ -489,7 +487,7 @@ Enable-Privileges
         Set-ItemProperty -Path $iface.PSPath -Name "TcpNoDelay"      -Value 1 -Force -ErrorAction SilentlyContinue
         $count++
     }
-    Write-Host ("   TcpAckFrequency/NoDelay: applied on {0} interfacce." -f $count) -ForegroundColor Gray
+    Write-Host ("   TcpAckFrequency/NoDelay: applied on {0} interfaces." -f $count) -ForegroundColor Gray
 
     # --------------------------------------------------------
     # NDIS RSS
@@ -509,13 +507,13 @@ Enable-Privileges
     Write-Host "   AFD KeepAliveInterval: 1." -ForegroundColor Gray
 
     # --------------------------------------------------------
-    # PSCHED QoS - nessuna riserva banda
+    # PSCHED QoS - no bandwidth reserve
     # --------------------------------------------------------
     $PschedPath = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\Psched"
     if (!(Test-Path $PschedPath)) { New-Item -Path $PschedPath -Force | Out-Null }
     Set-ItemProperty -Path $PschedPath -Name "NonBestEffortLimit" -Value 0 -Force
     Remove-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows" -Name "Psched" -ErrorAction SilentlyContinue
-    Write-Host "   Psched QoS: riserva banda azzerata." -ForegroundColor Gray
+    Write-Host "   Psched QoS: band reserve reset." -ForegroundColor Gray
 
     # --------------------------------------------------------
     # WiFi OPTIMIZER
@@ -646,20 +644,20 @@ Enable-Privileges
     Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\dmwappushservice" -Name "Start" -Value 4 -Force
     Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\WerSvc"           -Name "Start" -Value 4 -Force
 
-    Write-Host "-> Telemetria tombata e trigger eliminati." -ForegroundColor Green
+    Write-Host "-> Telemetry killed and triggers removed." -ForegroundColor Green
 }
 
 # ============================================================
 # BLOCK 10: WINDOWS UPDATE & DRIVER BLOCK
 # Corretto:
-# - DriverSearching creata se assente (non esiste su IoT LTSC)
+# - DriverSearching created if missing (does not exist on IoT LTSC)
 # - ACL Deny via Microsoft.Win32.Registry invece di Set-Acl
-# - wuauserv: solo Start=4 senza ACL (compatibile con WU-Control)
+# - wuauserv: Start=4 only, no ACL (WU-Control compatible)
 # ============================================================
 & {
     Write-Host "`n[MODULE] Driver Block & Windows Update Hard Lock..." -ForegroundColor Yellow
 
-    # 1. BLOCCO DRIVER - crea la chiave se non esiste
+    # 1. DRIVER BLOCK - create key if missing
     $DriverSearchPath = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\DriverSearching"
     if (!(Test-Path $DriverSearchPath)) { New-Item -Path $DriverSearchPath -Force | Out-Null }
     Set-ItemProperty -Path $DriverSearchPath -Name "SearchOrderConfig" -Value 0 -Force
@@ -684,7 +682,7 @@ Enable-Privileges
         Set-SvcDenyAcl -SvcName $s
     }
 
-    # 4. SOFT LOCK: wuauserv (Start=4 senza ACL Deny)
+    # 4. SOFT LOCK: wuauserv (Start=4 without ACL Deny)
     # WU-Control uses sc.exe to re-enable it temporarily
     Stop-Service -Name "wuauserv" -Force -ErrorAction SilentlyContinue
     Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\wuauserv" -Name "Start" -Value 4 -Force
@@ -760,7 +758,7 @@ Enable-Privileges
     if (!(Test-Path $ExpAdv)) { New-Item -Path $ExpAdv -Force | Out-Null }
     Set-ItemProperty -Path $ExpAdv -Name "ClassicShell" -Value 1 -Force
 
-    Write-Host "-> Modifiche UI registrate (Attive al riavvio)." -ForegroundColor Green
+    Write-Host "-> UI changes registered (active after reboot)." -ForegroundColor Green
 }
 
 # ============================================================
@@ -895,12 +893,12 @@ Enable-Privileges
         Write-Host "   CDPUserSvc trigger deleted: $($cdpUser.Name)" -ForegroundColor Gray
     }
 
-    # 2. ARRESTO E DISABILITAZIONE
+    # 2. STOP AND DISABLING
     Stop-Service -Name "CDPSvc" -Force -ErrorAction SilentlyContinue
     Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\CDPSvc"    -Name "Start" -Value 4 -Force -ErrorAction SilentlyContinue
     Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\CDPUserSvc" -Name "Start" -Value 4 -Force -ErrorAction SilentlyContinue
 
-    # 3. POLICY BLOCCO RIATTIVAZIONE CDP
+    # 3. CDP REACTIVATION BLOCK POLICY
     $CDPath = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\System"
     if (!(Test-Path $CDPath)) { New-Item -Path $CDPath -Force | Out-Null }
     Set-ItemProperty -Path $CDPath -Name "EnableCdp" -Value 0 -Force
@@ -954,7 +952,7 @@ Enable-Privileges
                 -ErrorAction SilentlyContinue | Out-Null
         }
     }
-    # Rimuovi eventuale IFEO residuo da versioni precedenti dello script
+    # Remove any IFEO residual from previous script versions
     $IFEOPath = "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options\CrossDeviceResume.exe"
     if (Test-Path $IFEOPath) {
         Remove-Item -Path $IFEOPath -Force -ErrorAction SilentlyContinue
@@ -990,7 +988,7 @@ Enable-Privileges
         Write-Host "   $svc : Automatico + avviato." -ForegroundColor Gray
     }
 
-    # Ri-registra flyout volume (SndVolSSO) per compatibilita' StartAllBack/LTSC
+    # Re-register volume flyout (SndVolSSO) for StartAllBack/LTSC compatibility
     & regsvr32.exe /s "C:\Windows\System32\SndVolSSO.dll"
     Write-Host "   SndVolSSO.dll re-registered." -ForegroundColor Gray
 
@@ -1014,7 +1012,7 @@ Enable-Privileges
         if (Test-Path $regPath) {
             Set-ItemProperty -Path $regPath -Name "Start" -Value $entry.Value -Force -ErrorAction SilentlyContinue
             Start-Service -Name $entry.Key -ErrorAction SilentlyContinue
-            Write-Host "   $($entry.Key) : configurato e avviato." -ForegroundColor Gray
+            Write-Host "   $($entry.Key) : configured and started." -ForegroundColor Gray
         }
     }
 
@@ -1049,7 +1047,7 @@ Enable-Privileges
     Remove-Item -Path "$env:TEMP\*"                                              -Recurse -Force -ErrorAction SilentlyContinue
     Remove-Item -Path "$env:LOCALAPPDATA\Microsoft\Windows\History\*"            -Recurse -Force -ErrorAction SilentlyContinue
 
-    # EdgeUpdate hard block (vaccino)
+    # EdgeUpdate hard block (Vaccine)
     $EdgeUpPath = "$env:LOCALAPPDATA\Microsoft\EdgeUpdate"
     if (Test-Path $EdgeUpPath) { Remove-Item -Path $EdgeUpPath -Force -Recurse -ErrorAction SilentlyContinue }
     New-Item -Path $EdgeUpPath -ItemType Directory -Force | Out-Null
@@ -1062,7 +1060,7 @@ Enable-Privileges
 # BLOCCO 19: DEFAULT USER TEMPLATE & HARDENING
 # ============================================================
 & {
-    Write-Host "`n[MODULO] Propagazione Ottimizzazioni ai Nuovi Utenti (.DEFAULT)..." -ForegroundColor Cyan
+    Write-Host "`n[MODULO] Propagate Optimizations to New Users (.DEFAULT)..." -ForegroundColor Cyan
 
     $DefaultUser = "Registry::HKEY_USERS\.DEFAULT"
 
@@ -1084,31 +1082,31 @@ Enable-Privileges
     Set-ItemProperty -Path $SearchPath -Name "DisableSearchBoxSuggestions" -Value 1 -Force
     Set-ItemProperty -Path $SearchPath -Name "BingSearchEnabled"           -Value 0 -Force
 
-    # Firewall attivo per bloccare telemetria
+    # Firewall active to block telemetry
     Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\MpsSvc" -Name "Start" -Value 2 -Force
     Start-Service -Name "MpsSvc" -ErrorAction SilentlyContinue
 
-    Write-Host "-> Template .DEFAULT configurato con standard Titanium." -ForegroundColor Green
+    Write-Host "-> .DEFAULT template configured with Titanium standard." -ForegroundColor Green
 }
 
 # ============================================================
 # BLOCCO 20: FINAL TASK SCHEDULER PURGE
 # ============================================================
 & {
-    Write-Host "`n[MODULO] Bonifica Finale Task Scheduler..." -ForegroundColor Yellow
+    Write-Host "`n[MODULO] Final Remediation Task Scheduler..." -ForegroundColor Yellow
 
     & schtasks.exe /change /tn "Microsoft\Windows\Windows Error Reporting\QueueReporting" /disable 2>$null
     & schtasks.exe /change /tn "Microsoft\Windows\Windows Error Reporting\Consent"        /disable 2>$null
     & schtasks.exe /change /tn "Microsoft\Windows\Application Experience\MareBackup"      /disable 2>$null
     & schtasks.exe /change /tn "Microsoft\Windows\NetCeip\BindGatherer"                   /disable 2>$null
 
-    # Task Defender residui su IoT LTSC (Defender assente ma task rimangono)
+    # Residual Defender tasks on IoT LTSC (Defender absent but tasks remain)
     & schtasks.exe /change /tn "Microsoft\Windows\Windows Defender\Windows Defender Cache Maintenance" /disable 2>$null
     & schtasks.exe /change /tn "Microsoft\Windows\Windows Defender\Windows Defender Cleanup"           /disable 2>$null
     & schtasks.exe /change /tn "Microsoft\Windows\Windows Defender\Windows Defender Scheduled Scan"    /disable 2>$null
     & schtasks.exe /change /tn "Microsoft\Windows\Windows Defender\Windows Defender Verification"      /disable 2>$null
 
-    Write-Host "-> Task Scheduler bonificato." -ForegroundColor Green
+    Write-Host "-> Task Scheduler remediated." -ForegroundColor Green
 }
 
 # ============================================================
@@ -1377,7 +1375,7 @@ Enable-Privileges
     & wevtutil.exe cl Security    2>$null
 
     # --------------------------------------------------------
-    # RIEPILOGO FINALE NEL LOG
+    # FINAL SUMMARY IN THE LOG
     # --------------------------------------------------------
     $LogEndTime  = Get-Date
     $LogDuration = $LogEndTime - $LogStartTime
@@ -1390,7 +1388,7 @@ Enable-Privileges
 --- FINAL SUMMARY ---
 ╔══════════════════════════════════════════════════════════════╗
 ║  RESULT:     $LogResult
-║  Duration:   $DurMin minuti e $DurSec secondi
+║  Duration:   $DurMin minutes e $DurSec seconds
 ║  OK: $script:LogBlocksOk   Avvisi: $script:LogWarnings   Errori: $script:LogErrors
 ╚══════════════════════════════════════════════════════════════╝
 
