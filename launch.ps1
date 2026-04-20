@@ -314,7 +314,7 @@ function Get-WinEdition {
 function Get-SuggestedOption {
     param([string]$Edition)
     # Fix: pattern esteso per coprire IoTEnterpriseS, EnterpriseS, LTSC
-    if ($Edition -match "IoTEnterprise|EnterpriseS|LTSC|IoT") { return "3" }
+    if ($Edition -match "IoTEnterprise|Enterprise|LTSC|IoT") { return "3" }
     if ($Edition -match "Professional|Pro")                    { return "2" }
     if ($Edition -match "Core|Home")                           { return "1" }
     return $null
