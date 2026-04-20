@@ -9,7 +9,7 @@ const SCRIPTS = {
 export default {
   async fetch(request) {
     const url = new URL(request.url);
-    const path = url.pathname.replace("/", "").toLowerCase() || "launch";
+    const path = url.pathname.replace("/", "").toLowerCase() || "home";
 
     const target = SCRIPTS[path] ?? SCRIPTS["launch"];
 
