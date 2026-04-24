@@ -114,4 +114,3 @@
     EverythingNote3         = "Avvialo e trascina l'icona nella taskbar."
     OneDriveMsg2            = "Se scegli No, OneDrive rimane operativo."
 }
-
