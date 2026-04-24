@@ -341,14 +341,49 @@ foreach ($regPath in $_svcToBackup) {
 Write-Host ("  [BACKUP] {0} service keys exported to:" -f $_backedUp) -ForegroundColor Green
 Write-Host "           $_regBackup" -ForegroundColor Gray
 
-# Check 1: Free disk space (restore point needs at least 2GB)
+# Check 1: Free disk space + VSS shadow storage
 try {
-    $sysDrive  = $env:SystemDrive
-    $freeGB    = [math]::Round((Get-PSDrive ($sysDrive.Replace(":","")) -ErrorAction SilentlyContinue).Free / 1GB, 1)
+    $sysDrive = $env:SystemDrive
+    $driveLetter = $sysDrive.Replace(":","")
+
+    # Spazio libero attuale
+    $freeGB  = [math]::Round((Get-PSDrive $driveLetter -ErrorAction SilentlyContinue).Free / 1GB, 1)
+
+    # Spazio totale disco
+    $totalGB = [math]::Round((Get-PSDrive $driveLetter -ErrorAction SilentlyContinue).Used / 1GB +
+               (Get-PSDrive $driveLetter -ErrorAction SilentlyContinue).Free / 1GB, 1)
+
+    # Spazio VSS (punti di ripristino)
+    $vssBytes = 0
+    try {
+        $vssList = & vssadmin.exe list shadowstorage /for=$sysDrive 2>$null
+        # Search by numeric pattern - works on any language (IT/EN/DE/FR etc.)
+        # IT: "utilizzato", EN: "used", DE: "verwendet", FR: "utilisé"
+        $vssList | Where-Object { $_ -match "[\d,\.]+\s*(GB|MB|KB|TB)" } |
+            Where-Object { $_ -match "utiliz|used|verwendet|utilis|gebruikt|usato|uso" } |
+            Select-Object -Last 1 | ForEach-Object {
+            $line = $_ -replace ".*:\s+",""
+            if ($line -match "([\d,\.]+)\s*(GB|MB|KB|TB)") {
+                $val  = [double]($matches[1] -replace ",",".")
+                $unit = $matches[2]
+                $vssBytes += switch ($unit) {
+                    "TB" { $val * 1TB }
+                    "GB" { $val * 1GB }
+                    "MB" { $val * 1MB }
+                    "KB" { $val * 1KB }
+                }
+            }
+        }
+    } catch {}
+    $vssGB = [math]::Round($vssBytes / 1GB, 2)
+
+    # Spazio realmente disponibile (libero + VSS recuperabile)
+    $realFreeGB = [math]::Round($freeGB + $vssGB, 1)
+
+    Write-Host ("  [OK]   Disk: {0} GB free  |  VSS/Restore points: {1} GB  |  Total recoverable: {2} GB  |  Disk total: {3} GB" -f $freeGB, $vssGB, $realFreeGB, $totalGB) -ForegroundColor Gray
+
     if ($freeGB -lt 2) {
         Write-Host ("  [WARN] Low disk space: {0} GB free. At least 2 GB recommended." -f $freeGB) -ForegroundColor Yellow
-    } else {
-        Write-Host ("  [OK]   Disk space: {0} GB free." -f $freeGB) -ForegroundColor Gray
     }
 } catch {}
 
@@ -433,7 +468,7 @@ if ($_pendingReboot) {
 
 Write-Host $Lang.PreFlightDone -ForegroundColor Green
 
-Restore point
+# Restore point
 Write-Host $Lang.RestoreCreating -ForegroundColor Cyan
 Enable-ComputerRestore -Drive "C:\" -ErrorAction SilentlyContinue
 $SrPath = "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\SystemRestore"
@@ -1995,6 +2030,246 @@ if (Test-Path $NoopPath) {
 }
 
 # ============================================================
+# BLOCK 17c: DEFENDER DEEP REMOVE
+# Removes drivers, services, tasks, shell entries, SecHealthUI
+# Based on ionuttbara/windows-defender-remover
+# Physical files NOT deleted - operation is reversible
+# Restore: Microsoft Store -> "Windows Security" -> Install
+# ============================================================
+& {
+    Write-Host "`n[MODULO] Defender Deep Remove..." -ForegroundColor Red
+
+    # ---- Step 1: Policy hard lock (extends Block 17) ----
+    $DefBase = "HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender"
+    if (!(Test-Path $DefBase)) { New-Item -Path $DefBase -Force | Out-Null }
+    @{
+        "DisableRoutinelyTakingAction" = 1
+        "ServiceKeepAlive"             = 0
+        "AllowFastServiceStartup"      = 0
+        "DisableLocalAdminMerge"       = 1
+    }.GetEnumerator() | ForEach-Object {
+        Set-ItemProperty -Path $DefBase -Name $_.Key -Value $_.Value -Type DWord -Force -ErrorAction SilentlyContinue
+    }
+    $RTP = "$DefBase\Real-Time Protection"
+    if (!(Test-Path $RTP)) { New-Item -Path $RTP -Force | Out-Null }
+    @{
+        "DisableIOAVProtection"                         = 1
+        "DisableBehaviorMonitoring"                     = 1
+        "DisableOnAccessProtection"                     = 1
+        "DisableScanOnRealtimeEnable"                   = 1
+        "DisableInformationProtectionControl"           = 1
+        "DisableIntrusionPreventionSystem"              = 1
+        "DisableRawWriteNotification"                   = 1
+        "LocalSettingOverrideDisableRealtimeMonitoring" = 0
+        "LocalSettingOverrideDisableIOAVProtection"     = 0
+        "LocalSettingOverrideDisableBehaviorMonitoring" = 0
+        "LocalSettingOverrideDisableOnAccessProtection" = 0
+    }.GetEnumerator() | ForEach-Object {
+        Set-ItemProperty -Path $RTP -Name $_.Key -Value $_.Value -Type DWord -Force -ErrorAction SilentlyContinue
+    }
+    $SpyNet = "$DefBase\Spynet"
+    if (!(Test-Path $SpyNet)) { New-Item -Path $SpyNet -Force | Out-Null }
+    Set-ItemProperty -Path $SpyNet -Name "DisableBlockAtFirstSeen" -Value 1 -Type DWord -Force -ErrorAction SilentlyContinue
+    Set-ItemProperty -Path $SpyNet -Name "SpynetReporting"         -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue
+    Set-ItemProperty -Path $SpyNet -Name "SubmitSamplesConsent"    -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue
+    $SigUp = "$DefBase\Signature Updates"
+    if (!(Test-Path $SigUp)) { New-Item -Path $SigUp -Force | Out-Null }
+    @{
+        "SignatureDisableNotification"             = 1
+        "RealtimeSignatureDelivery"                = 0
+        "ForceUpdateFromMU"                        = 0
+        "DisableScheduledSignatureUpdateOnBattery" = 1
+        "UpdateOnStartUp"                          = 0
+        "DisableUpdateOnStartupWithoutEngine"      = 1
+        "DisableScanOnUpdate"                      = 1
+    }.GetEnumerator() | ForEach-Object {
+        Set-ItemProperty -Path $SigUp -Name $_.Key -Value $_.Value -Type DWord -Force -ErrorAction SilentlyContinue
+    }
+    Write-Host "   Defender policy hard lock: extended." -ForegroundColor Gray
+
+    # ---- Step 2: Remove Defender service registry keys ----
+    # Kernel boot drivers (MsSecCore, WdFilter, WdBoot, WdNisDrv) cannot be
+    # stopped at runtime - they unload on reboot after registry key removal
+    $kernelDrivers = @("WdFilter","WdNisDrv","WdBoot","MsSecCore","MsSecFlt","MsSecWfp","PlutonHsp2","PlutonHeci","Hsp")
+    $userServices  = @("WinDefend","WdNisSvc","wscsvc","SecurityHealthService","SgrmAgent","SgrmBroker","webthreatdefsvc","webthreatdefusersvc","whesvc")
+
+    # User-mode Defender services: registry removal prevents restart after reboot
+    # sc.exe stop blocked by Tamper Protection even from SYSTEM in current session
+    # Changes take full effect after reboot
+
+    # Remove registry keys for ALL (both drivers and services)
+    foreach ($svc in ($kernelDrivers + $userServices)) {
+        $svcPath = "HKLM:\SYSTEM\CurrentControlSet\Services\$svc"
+        if (Test-Path $svcPath) {
+            Set-ItemProperty -Path $svcPath -Name "Start" -Value 4 -Force -ErrorAction SilentlyContinue
+            Remove-Item -Path $svcPath -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+    Write-Host "   Defender service keys: removed." -ForegroundColor Gray
+
+    # ---- Step 3: Remove Defender scheduled tasks ----
+    $defTasks = @(
+        "\Microsoft\Windows\Windows Defender\Windows Defender Cache Maintenance",
+        "\Microsoft\Windows\Windows Defender\Windows Defender Cleanup",
+        "\Microsoft\Windows\Windows Defender\Windows Defender Scheduled Scan",
+        "\Microsoft\Windows\Windows Defender\Windows Defender Verification"
+    )
+    foreach ($t in $defTasks) {
+        Unregister-ScheduledTask -TaskPath (Split-Path $t) -TaskName (Split-Path $t -Leaf) -Confirm:$false -ErrorAction SilentlyContinue
+    }
+    foreach ($g in @("{0ACC9108-2000-46C0-8407-5FD9F89521E8}","{1D77BCC8-1D07-42D0-8C89-3A98674DFB6F}","{4A9233DB-A7D3-45D6-B476-8C7D8DF73EB5}","{B05F34EE-83F2-413D-BC1D-7D5BD6E98300}")) {
+        Remove-Item "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Schedule\TaskCache\Tasks\$g" -Recurse -Force -ErrorAction SilentlyContinue
+    }
+    Write-Host "   Defender tasks: removed." -ForegroundColor Gray
+
+    # Remove SmartScreen + Defender COM CLSIDs (all 3 hives)
+    # Includes SmartScreen triggers that keep smartscreen.exe alive after reboot
+    # {45F2C32F}: MpClient COM - used by some 3rd party AV for status query
+    #             Safe to remove - 3rd party AV installs its own COM interfaces
+    $defCLSIDs = @(
+        "{2781761E-28E0-4109-99FE-B9D127C57AFE}",  # SmartScreen COM trigger
+        "{2781761E-28E2-4109-99FE-B9D127C57AFE}",  # SmartScreen COM trigger v2
+        "{195B4D07-3DE2-4744-BBF2-D90121AE785B}",  # WdFilter COM interface
+        "{361290c0-cb1b-49ae-9f3e-ba1cbe5dab35}",  # Defender ATP sensor
+        "{45F2C32F-ED16-4C94-8493-D72EF93A051B}",  # MpClient COM
+        "{6CED0DAA-4CDE-49C9-BA3A-AE163DC3D7AF}",  # MpOAV on-access scanning
+        "{8a696d12-576b-422e-9712-01b9dd84b446}",  # Network Inspection
+        "{8C9C0DB7-2CBA-40F1-AFE0-C55740DD91A0}",  # MpRTP real-time protection
+        "{A2D75874-6750-4931-94C1-C99D3BC9D0C7}",  # Antimalware service interface
+        "{A7C452EF-8E9F-42EB-9F2B-245613CA0DC9}",  # SmartScreen AppRep COM
+        "{DACA056E-216A-4FD1-84A6-C306A017ECEC}",  # SmartScreen phishing COM
+        "{E3C9166D-1D39-4D4E-A45D-BC7BE9B00578}",  # Exploit Guard COM
+        "{F6976CF5-68A8-436C-975A-40BE53616D59}"   # Behavior Monitor COM
+    )
+    $clsidHives = @(
+        "HKLM:\SOFTWARE\Classes\CLSID",
+        "HKLM:\SOFTWARE\Classes\WOW6432Node\CLSID",
+        "HKLM:\SOFTWARE\WOW6432Node\Classes\CLSID",
+        "HKCR:\CLSID",
+        "HKCR:\WOW6432Node\CLSID"
+    )
+    foreach ($clsid in $defCLSIDs) {
+        foreach ($hive in $clsidHives) {
+            Remove-Item -Path "$hive\$clsid" -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+    Write-Host "   Defender + SmartScreen COM CLSIDs: removed." -ForegroundColor Gray
+
+    # ---- Step 4: Remove shell associations and context menu ----
+    foreach ($k in @(
+        "HKCU:\Software\Microsoft\Windows\Shell\Associations\UrlAssociations\windowsdefender",
+        "HKLM:\SOFTWARE\Classes\AppUserModelId\Windows.Defender",
+        "HKLM:\SOFTWARE\Classes\AppUserModelId\Microsoft.Windows.Defender",
+        "HKLM:\SOFTWARE\Classes\WindowsDefender",
+        "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Explorer\ShellServiceObjects\{900c0763-5cad-4a34-bc1f-40cd513679d5}",
+        "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\ShellServiceObjects\{900c0763-5cad-4a34-bc1f-40cd513679d5}"
+    )) { Remove-Item -Path $k -Recurse -Force -ErrorAction SilentlyContinue }
+    $fwPath = "HKLM:\SYSTEM\CurrentControlSet\Services\SharedAccess\Parameters\FirewallPolicy\RestrictedServices\Static\System"
+    if (Test-Path $fwPath) {
+        @("WindowsDefender-1","WindowsDefender-2","WindowsDefender-3") | ForEach-Object {
+            Remove-ItemProperty -Path $fwPath -Name $_ -Force -ErrorAction SilentlyContinue
+        }
+    }
+    Write-Host "   Shell associations + context menu: removed." -ForegroundColor Gray
+
+    # ---- Step 5: Remove startup entries ----
+    foreach ($p in @("HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run","HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run")) {
+        @("Windows Defender","SecurityHealth","WindowsDefender") | ForEach-Object {
+            Remove-ItemProperty -Path $p -Name $_ -Force -ErrorAction SilentlyContinue
+        }
+    }
+    Write-Host "   Startup entries: removed." -ForegroundColor Gray
+
+    # ---- Step 6: Security Health components ----
+    Remove-Item -Path "HKLM:\SOFTWARE\Microsoft\Windows Security Health" -Recurse -Force -ErrorAction SilentlyContinue
+    Remove-Item -Path "HKCU:\Software\Microsoft\Windows Security Health"  -Recurse -Force -ErrorAction SilentlyContinue
+    $secCenter = "HKLM:\SOFTWARE\Microsoft\Security Center"
+    if (!(Test-Path $secCenter)) { New-Item -Path $secCenter -Force | Out-Null }
+    @{ "FirstRunDisabled"=1; "AntiVirusOverride"=1; "FirewallOverride"=1 }.GetEnumerator() | ForEach-Object {
+        Set-ItemProperty -Path $secCenter -Name $_.Key -Value $_.Value -Type DWord -Force -ErrorAction SilentlyContinue
+    }
+    $settingsVis = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Explorer"
+    if (!(Test-Path $settingsVis)) { New-Item -Path $settingsVis -Force | Out-Null }
+    Set-ItemProperty -Path $settingsVis -Name "SettingsPageVisibility" -Value "hide:windowsdefender;" -Type String -Force -ErrorAction SilentlyContinue
+    foreach ($p in @(
+        "HKLM:\SOFTWARE\Microsoft\PolicyManager\default\WindowsDefenderSecurityCenter\DisableNotifications",
+        "HKLM:\SOFTWARE\Microsoft\PolicyManager\default\WindowsDefenderSecurityCenter\DisableEnhancedNotifications",
+        "HKLM:\SOFTWARE\Microsoft\PolicyManager\default\WindowsDefenderSecurityCenter\HideWindowsSecurityNotificationAreaControl"
+    )) {
+        if (!(Test-Path $p)) { New-Item -Path $p -Force | Out-Null }
+        Set-ItemProperty -Path $p -Name "value" -Value 1 -Type DWord -Force -ErrorAction SilentlyContinue
+    }
+    foreach ($k in @(
+        "HKCR:\CLSID\{BB64F8A7-BEE7-4E1A-AB8D-7D8273F7FDB6}",
+        "HKCR:\WOW6432Node\CLSID\{BB64F8A7-BEE7-4E1A-AB8D-7D8273F7FDB6}",
+        "HKLM:\SOFTWARE\Classes\CLSID\{BB64F8A7-BEE7-4E1A-AB8D-7D8273F7FDB6}",
+        "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\ControlPanel\NameSpace\{BB64F8A7-BEE7-4E1A-AB8D-7D8273F7FDB6}"
+    )) { Remove-Item -Path $k -Recurse -Force -ErrorAction SilentlyContinue }
+    Write-Host "   Security Health components: removed." -ForegroundColor Gray
+
+    # ---- Step 7: SecHealthUI AppxPackage ----
+    Write-Host "   Removing SecHealthUI AppxPackage (may take 30-60 sec)..." -ForegroundColor Gray
+    $store = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Appx\AppxAllUserStore'
+    $users = @('S-1-5-18')
+    if (Test-Path $store) {
+        $users += @((Get-ChildItem $store -ErrorAction SilentlyContinue | Where-Object { $_.PSChildName -like '*S-1-5-21*' }).PSChildName)
+    }
+    $provisioned = Get-AppxProvisionedPackage -Online -ErrorAction SilentlyContinue
+    $allpkgs     = Get-AppxPackage -AllUsers -ErrorAction SilentlyContinue
+    foreach ($appx in ($provisioned | Where-Object { $_.PackageName -like "*SecHealthUI*" })) {
+        $PackageName       = $appx.PackageName
+        $PackageFamilyName = ($allpkgs | Where-Object { $_.Name -eq $appx.DisplayName }).PackageFamilyName
+        if ($PackageFamilyName) {
+            New-Item "$store\Deprovisioned\$PackageFamilyName" -Force -ErrorAction SilentlyContinue | Out-Null
+            foreach ($sid in $users) { New-Item "$store\EndOfLife\$sid\$PackageName" -Force -ErrorAction SilentlyContinue | Out-Null }
+            & dism.exe /online /set-nonremovableapppolicy /packagefamily:$PackageFamilyName /nonremovable:0 2>$null | Out-Null
+            Remove-AppxProvisionedPackage -PackageName $PackageName -Online -AllUsers -ErrorAction SilentlyContinue | Out-Null
+        }
+    }
+    foreach ($appx in ($allpkgs | Where-Object { $_.PackageFullName -like "*SecHealthUI*" })) {
+        $PackageFamilyName = $appx.PackageFamilyName
+        New-Item "$store\Deprovisioned\$PackageFamilyName" -Force -ErrorAction SilentlyContinue | Out-Null
+        foreach ($sid in $users) { New-Item "$store\EndOfLife\$sid\$($appx.PackageFullName)" -Force -ErrorAction SilentlyContinue | Out-Null }
+        & dism.exe /online /set-nonremovableapppolicy /packagefamily:$PackageFamilyName /nonremovable:0 2>$null | Out-Null
+        Remove-AppxPackage -Package $appx.PackageFullName -AllUsers -ErrorAction SilentlyContinue | Out-Null
+    }
+    Write-Host "   SecHealthUI: removed." -ForegroundColor Gray
+
+    # ---- Step 8: Web Threat Defense ----
+    foreach ($p in @(
+        "HKLM:\SOFTWARE\Microsoft\PolicyManager\default\WebThreatDefense\AuditMode",
+        "HKLM:\SOFTWARE\Microsoft\PolicyManager\default\WebThreatDefense\NotifyUnsafeOrReusedPassword",
+        "HKLM:\SOFTWARE\Microsoft\PolicyManager\default\WebThreatDefense\ServiceEnabled"
+    )) {
+        if (!(Test-Path $p)) { New-Item -Path $p -Force | Out-Null }
+        Set-ItemProperty -Path $p -Name "value" -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue
+    }
+    Remove-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Svchost" -Name "WebThreatDefense" -Force -ErrorAction SilentlyContinue
+    $fwPaths = @(
+        "HKLM:\SYSTEM\CurrentControlSet\Services\SharedAccess\Parameters\FirewallPolicy\RestrictedServices\Static\System",
+        "HKLM:\SYSTEM\CurrentControlSet\Services\SharedAccess\Parameters\FirewallPolicy\RestrictedServices\Configurable\System"
+    )
+    foreach ($fp in $fwPaths) {
+        if (Test-Path $fp) {
+            @("WebThreatDefSvc_Allow_In","WebThreatDefSvc_Allow_Out","WebThreatDefSvc_Block_In","WebThreatDefSvc_Block_Out",
+              "{2A5FE97D-01A4-4A9C-8241-BB3755B65EE0}","72e33e44-dc4c-40c5-a688-a77b6e988c69","b23879b5-1ef3-45b7-8933-554a4303d2f3"
+            ) | ForEach-Object { Remove-ItemProperty -Path $fp -Name $_ -Force -ErrorAction SilentlyContinue }
+        }
+    }
+    Write-Host "   Web Threat Defense: removed." -ForegroundColor Gray
+
+    # ---- Report note ----
+    Write-Log "Defender Deep Remove: COMPLETED. Physical files preserved - operation reversible." "OK"
+    Write-Log "Restore Defender: Microsoft Store -> search 'Microsoft Defender' -> Install" "OK"
+    Write-Log "Direct URL: https://apps.microsoft.com/detail/9p6pmztm93lr" "OK"
+
+    Write-Host "-> Defender Deep Remove: COMPLETED." -ForegroundColor Green
+    Write-Host "   [!] Physical files NOT deleted - reversible." -ForegroundColor Yellow
+    Write-Host "   [!] To restore: Microsoft Store -> 'Microsoft Defender'" -ForegroundColor Yellow
+    Write-Host "   [!] URL: https://apps.microsoft.com/detail/9p6pmztm93lr" -ForegroundColor Cyan
+}
+
+# ============================================================
 # BLOCK 17b:AUDIO VOLUME & INTERNET CONNECTION PROTECTION
 # Ensures that AudioSrv, AudioEndpointBuilder and services
 # essential network services remain active and protected
@@ -2588,7 +2863,7 @@ if (Test-Path $NoopPath) {
 # Preserve: Store, Photos, Calculator, Notepad, Terminal
 # ============================================================
 & {
-    Write-Host "`n[MODULO] Bloatware Removal Win11 Pro..." -ForegroundColor Yellow
+    Write-Host "`n[MODULO] Bloatware Removal Win11 Home..." -ForegroundColor Yellow
 
     $bloatware = @(
         "Microsoft.XboxApp"
@@ -2896,13 +3171,14 @@ $($Lang.FooterSummary)
 
 $($Lang.FooterSendFile)
 $($Lang.FooterBackupPath) C:\Windows\Logs\$ScriptName\
+Restore Defender: https://apps.microsoft.com/detail/9p6pmztm93lr
 "@
     Add-Content -Path $LogDesktop -Value $footer -Encoding UTF8 -ErrorAction SilentlyContinue
     Add-Content -Path $LogBackup  -Value $footer -Encoding UTF8 -ErrorAction SilentlyContinue
 
     Write-Host "`n=== TITANIUM V8 WIN11 PRO - COMPLETED ===" -ForegroundColor Green
     # Note: SummaryTitle hardcoded for Pro (lang key uses HOME variant)
-    Write-Host $Lang.SummaryDefender  -ForegroundColor White
+    Write-Host " -> Defender/SmartScreen/Tamper Protection: DEEP REMOVED." -ForegroundColor White
     Write-Host $Lang.SummaryBloatware -ForegroundColor White
     Write-Host $Lang.SummaryMSA       -ForegroundColor White
     Write-Host $Lang.SummarySSD       -ForegroundColor White
