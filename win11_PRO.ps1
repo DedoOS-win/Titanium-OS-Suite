@@ -33,7 +33,7 @@ if ($isAdmin -and -not $isSystem) {
 # Set $true during local VM testing - reads psd1 from disk
 # Set $false before pushing to GitHub/production
 # ============================================================
-$TestMode    = $true
+$TestMode    = $false
 $TestLangDir = "C:\Titanium\lang"
 
 # ============================================================
