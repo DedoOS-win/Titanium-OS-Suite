@@ -433,7 +433,7 @@ if ($_pendingReboot) {
 
 Write-Host $Lang.PreFlightDone -ForegroundColor Green
 
-Restore point
+# Restore point
 Write-Host $Lang.RestoreCreating -ForegroundColor Cyan
 Enable-ComputerRestore -Drive "C:\" -ErrorAction SilentlyContinue
 $SrPath = "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\SystemRestore"
