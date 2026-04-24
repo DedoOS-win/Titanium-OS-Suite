@@ -3,8 +3,8 @@
 # Culture: ru-RU (Russian - Russia)
 # ============================================================
 @{
-    ScriptName          = "win11_HOME"
-    ReportTitle         = "TITANIUM V8 - ОТЧЕТ ОБ ОПТИМИЗАЦИИ"
+    ScriptName          = "win11_PRO"
+    ReportTitle         = "TITANIUM V8 - ОТЧЕТ ОБ ОПТИМИЗАЦИИ (Win11 Pro)"
     LabelDate           = "Дата"
     LabelComputer       = "Компьютер"
     LabelUser           = "Пользователь"

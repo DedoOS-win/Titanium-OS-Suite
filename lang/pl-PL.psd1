@@ -1,6 +1,6 @@
 @{
-    ScriptName          = "win11_HOME"
-    ReportTitle         = "TITANIUM V8 - RAPORT OPTYMALIZACJI"
+    ScriptName          = "win11_PRO"
+    ReportTitle         = "TITANIUM V8 - RAPORT OPTYMALIZACJI (Win11 Pro)"
     LabelDate           = "Data"
     LabelComputer       = "Komputer"
     LabelUser           = "Uzytkownik"

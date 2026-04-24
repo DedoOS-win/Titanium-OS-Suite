@@ -3,8 +3,8 @@
 # Culture: zh-CN (Chinese Simplified - China)
 # ============================================================
 @{
-    ScriptName          = "win11_HOME"
-    ReportTitle         = "TITANIUM V8 - 优化报告"
+    ScriptName          = "win11_PRO"
+    ReportTitle         = "TITANIUM V8 - 优化报告 (Win11 Pro)"
     LabelDate           = "日期"
     LabelComputer       = "计算机"
     LabelUser           = "用户"

@@ -4,10 +4,10 @@
 # ============================================================
 @{
     # ---- SCRIPT NAME (used for log folder and file name) ----
-    ScriptName          = "win11_HOME"
+    ScriptName          = "win11_PRO"
 
     # ---- HEADER LOG ----
-    ReportTitle         = "TITANIUM V8 - OPTIMIZATION REPORT"
+    ReportTitle         = "TITANIUM V8 - OPTIMIZATION REPORT (Win11 Pro)"
     LabelDate           = "Date"
     LabelComputer       = "Computer"
     LabelUser           = "User"

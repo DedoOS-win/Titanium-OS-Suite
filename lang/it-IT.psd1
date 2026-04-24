@@ -3,8 +3,8 @@
 # Culture: it-IT (Italian - Italy)
 # ============================================================
 @{
-    ScriptName          = "win11_HOME"
-    ReportTitle         = "TITANIUM V8 - REPORT OTTIMIZZAZIONE"
+    ScriptName          = "win11_PRO"
+    ReportTitle         = "TITANIUM V8 - REPORT OTTIMIZZAZIONE (Win11 Pro)"
     LabelDate           = "Data"
     LabelComputer       = "Computer"
     LabelUser           = "Utente"
